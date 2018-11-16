@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<!-- 
+            动态代理开发规则:
+    1.namespace: 必须是接口的全路径名
+    2.接口的方法名必须与sql id一致
+    3.接口的入参必须与parameterType类型一致
+    4.接口的返回值必须与resultType类型一致
+ -->
+
+
+<!-- namespace: 命名空间,用于隔离sql语句  
+    #{ }:点位符,相当于jdbc的? 
+    ${ }:字符串拼接指令,如果入参是普通数据类型,{}只能写value -->
+<mapper namespace="com.hmg.mybatis.mapper.UserMapper">
+    <!-- id: sql  id,语句的唯一标识
+         parameterType: 入参的数据类型
+         resultType: 返回结果的数据类型
+     -->
+     
+     <!-- 声明sql片段 -->
+     <sql id="userSql">
+        `id`,`username`, `birthday`, `sex`, `address`
+     </sql>
+     
+    <!-- 查询  -->
+    <select id="getUserById" parameterType="int" resultType="UsEr">
+    SELECT 
+    <!-- 使用include加载sql片段,refid是sql片段的id -->
+    <include refid="userSql"></include>
+    FROM `user` WHERE id = #{id}
+    </select>
+    
+    <!-- ResultType 如果返回值是List类型 只需设置成每一个的数据类型 -->
+    
+    
+    <select id="getUserIfByUserName" parameterType="com.hmg.mybatis.pojo.User" resultType="com.hmg.mybatis.pojo.User">
+       <!--  SELECT * FROM `user` WHERE username LIKE #{name} -->
+        SELECT * FROM `user` 
+        <!-- where标签使用  -->
+        <!-- 使用了<where>关键字,会在sql语句中自动添加where,不用再手动添加.同时<where>会自动处理多余的and -->
+        <where>
+            <if test="username != null and username != ''">
+                and username LIKE '%${username}%'            
+            </if>
+            <if test="sex != null and sex != ''">
+                and sex= #{sex} 
+            </if>
+        </where>
+        
+        <!-- WHERE username LICK #{name} -->
+        <!-- if标签使用 -->
+        <!--     WHERE 1=1
+            <if test="username != null and username != ''">
+                username LIKE '%${username}%'            
+            </if>
+            <if test="sex != null and sex != ''">
+                and sex= #{sex} 
+            </if> -->
+    </select>
+    
+    <!-- 插入用户 -->
+    <!-- useGeneratedKeys="true":使用自增, keyProperty="id"配套使用(user的主键)
+                或 者
+                添加 SELECT LAST_INSERT_ID()
+    -->
+    <insert id="insertUser" parameterType="com.hmg.mybatis.pojo.User" useGeneratedKeys="true"  keyProperty="id">
+        <!-- selectKey 主键返回
+             keyProperty:user中的主键属性
+             resultType:主键数据类型
+             order:指定selectKey执行时间(BEFORE或AFTER)
+         -->
+       <!--  <selectKey keyProperty="id" resultType="int" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey> -->
+        INSERT INTO `user` (`username`, `birthday`, `sex`, `address`) VALUES ( #{ username },  #{ birthday },  #{ sex },  #{ address });
+    </insert>
+
+    
+    <!-- 更新用户 -->
+    <update id="updateUser" parameterType="com.hmg.mybatis.pojo.User">
+        UPDATE `user` SET, `username`= #{ username } WHERE (`id`=#{ id });
+    </update>
+    
+    <!-- 删除用户 -->
+    <delete id="deleteUser" parameterType="int">
+        DELETE FROM `user` WHERE `id` = #{ id };
+    </delete>
+    
+    <!-- 第二天 -->
+    <select id="getUserByUserVo" parameterType="UserVo" resultType="com.hmg.mybatis.pojo.User">
+       <!--  SELECT * FROM `user` WHERE username LIKE #{name} -->
+        SELECT * FROM `user` WHERE username LIKE '%${user.username}%'
+    </select>
+    
+    <!-- 查询用户数量 -->
+    <select id="getUserCount" resultType="int">
+        SELECT COUNT(1) FROM `user`
+    </select>
+    
+    <!-- 根据id列表查找id -->
+    <select id="getIdByIds" parameterType="userVo"  resultType="user">
+        SELECT * FROM `user`
+        <where>
+            <!-- foreach 标签,进行遍历 -->
+            <!-- 
+                collection: 遍历的集合,这里是UserVo的ids属性
+                item: 遍历的项目,可以随便写,但是名字需要和#{}保持一致
+                open: 在前面添加的sql片段
+                close: 在后面添加的sql片段
+                separator: 指定遍历元素之间使用的分隔符
+             -->
+            <foreach collection="ids" open="id IN(" item="item" separator="," close=")">
+                    #{item}
+            </foreach>
+        </where>
+    </select>
+    
+    <resultMap type="user" id="user order map">
+        <id property="id" column="id" />
+        <result property="username" column="username"/>
+        <result property="birthday" column="birthday"/>
+        <result property="sex" column="sex"/>
+        <result property="address" column="address"/>
+        <!-- collection: 配置一对多关系
+             property: User中的Order属性 (private Order orders;)
+             ofType: orders的数据类型
+         -->
+        <collection property="orders" ofType="com.hmg.mybatis.pojo.Order">
+            <!-- 配置主键id -->
+            <id property="id" column="oId"/>
+            <result property="userId" column="user_id"/>
+            <result property="number" column="number"/>
+            <result property="createtime" column="createtime"/>
+            <result property="note" column="note"/>
+        </collection>
+    </resultMap>
+    <select id="getUserOrderByMap" resultMap="user order map">
+        SELECT u.`id`, u.`username`,u.`birthday`,u.`sex`,u.`address`,o.`id` oId,o.`user_id`,o.`number`,o.`createtime`,o.`note`
+		FROM
+		    `user` u
+		LEFT JOIN `order` o ON u.id = o.user_id
+    </select>
+  
+    
+</mapper>
